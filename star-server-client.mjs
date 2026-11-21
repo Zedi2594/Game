@@ -3,26 +3,21 @@ const SERVER_URL = 'wss://tadpole-server.onrender.com/socket';
 
 export function createConnection(callbacks = {}) {
   let socket = null;
-  let session = null;
   let retryTimer = null;
   let stopped = false;
 
-  function setStatus(state, message = '') {
-    callbacks.onStatus?.({ state, message });
+  function setStatus(state, error) {
+    callbacks.onStatus?.({ state, error });
   }
 
   function connect() {
     if (stopped) return;
 
+    clearTimeout(retryTimer);
+    retryTimer = null;
     setStatus('connecting');
 
-    try {
-      socket = new WebSocket(SERVER_URL);
-    } catch (error) {
-      setStatus('disconnected', error.message);
-      scheduleRetry();
-      return;
-    }
+    socket = new WebSocket(SERVER_URL);
 
     socket.addEventListener('open', () => {
       setStatus('connected');
@@ -30,36 +25,27 @@ export function createConnection(callbacks = {}) {
 
     socket.addEventListener('message', (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const message = JSON.parse(event.data);
 
-        if (data.type === 'welcome') {
-          session = data.session;
-          callbacks.onConnect?.(session);
+        if (message.t === 'w') {
+          callbacks.onConnect?.({ id: message.id });
         }
-
-        callbacks.onMessage?.(data);
       } catch (error) {
-        console.error('Invalid server message:', error);
+        console.error('Server message error:', error);
       }
-    });
 
-    socket.addEventListener('close', () => {
-      setStatus('disconnected');
-      scheduleRetry();
+      callbacks.onMessage?.(event);
     });
 
     socket.addEventListener('error', () => {
-      setStatus('disconnected');
+      setStatus('error', new Error('Could not connect to Tadpole server'));
     });
-  }
 
-  function scheduleRetry() {
-    if (stopped || retryTimer) return;
-
-    retryTimer = setTimeout(() => {
-      retryTimer = null;
-      connect();
-    }, 3000);
+    socket.addEventListener('close', () => {
+      if (stopped) return;
+      setStatus('connecting');
+      retryTimer = setTimeout(connect, 3000);
+    });
   }
 
   connect();
@@ -67,16 +53,22 @@ export function createConnection(callbacks = {}) {
   return {
     send(data) {
       if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(data));
+        socket.send(data);
       }
     },
+
+    retry() {
+      if (stopped) return;
+      clearTimeout(retryTimer);
+      retryTimer = null;
+      socket?.close();
+      connect();
+    },
+
     close() {
       stopped = true;
       clearTimeout(retryTimer);
       socket?.close();
-    },
-    getSession() {
-      return session;
     }
   };
 }
