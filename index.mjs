@@ -216,7 +216,7 @@ function broadcastSnapshot() {
 }
 
 const httpServer = http.createServer((req, res) => {
-  if (req.url === '/health') {
+if (new URL(req.url, 'http://local').pathname.replace(/\/+$/, '') === '/health') {
     res.writeHead(200, { 'content-type': 'text/plain' });
     res.end('ok');
     return;
