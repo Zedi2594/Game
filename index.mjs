@@ -1,8 +1,8 @@
 // Authoritative tadpole tag server. Runs a 30 Hz simulation and broadcasts snapshots at 15 Hz.
 import http from 'node:http';
 import { WebSocketServer } from 'ws';
-import { TICK, C, makeWorld, findSpawn, newBody, stepBody } from '../shared/sim.mjs';
-import { SKIN_COUNT } from '../shared/skins.mjs';
+import { TICK, C, makeWorld, findSpawn, newBody, stepBody } from './shared/sim.mjs';
+import { SKIN_COUNT } from './shared/skins.mjs';
 
 const PORT = Number(process.env.PORT) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
